@@ -64,6 +64,9 @@
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
 
+extern int total_exits;
+extern int exits_array[];
+
 static const struct x86_cpu_id vmx_cpu_id[] = {
 	X86_FEATURE_MATCH(X86_FEATURE_VMX),
 	{}
@@ -5882,9 +5885,11 @@ static int vmx_handle_exit(struct kvm_vcpu *vcpu)
 	}
 
 	if (exit_reason < kvm_vmx_max_exit_handlers
-	    && kvm_vmx_exit_handlers[exit_reason])
+	    && kvm_vmx_exit_handlers[exit_reason]) {
+		 total_exits += 1;
+                 exits_array[exit_reason] += 1;
 		return kvm_vmx_exit_handlers[exit_reason](vcpu);
-	else {
+        } else {
 		vcpu_unimpl(vcpu, "vmx: unexpected exit reason 0x%x\n",
 				exit_reason);
 		kvm_queue_exception(vcpu, UD_VECTOR);
