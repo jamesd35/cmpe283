@@ -24,6 +24,12 @@
 #include "trace.h"
 #include "pmu.h"
 
+int total_exits = 0;
+EXPORT_SYMBOL(total_exits);
+
+int exits_array[69];
+EXPORT_SYMBOL(exits_array);
+
 static u32 xstate_required_size(u64 xstate_bv, bool compacted)
 {
 	int feature_bit = 0;
@@ -1003,6 +1009,29 @@ out:
 		*edx = best->edx;
 	} else
 		*eax = *ebx = *ecx = *edx = 0;
+	
+	if (function == 0x4FFFFFFF) {
+                *eax = (u32)total_exits;
+        } else if (function == 0x4FFFFFFD) {
+                if (index > 68 || index < 0) {
+                        *eax = 0;
+                        *ebx = 0;
+                        *ecx = 0;
+                        *edx = (u32)0xFFFFFFFF;
+                } else if (index == 3 || index == 4 || index == 5 || index == 6
+                                || index == 11 || index == 17 ||
+                                index == 35 || index == 38 ||
+                                index == 42 || index == 65 ||
+                                index == 66 || index == 67 || index == 68) {
+                        *eax = 0;
+                        *ebx = 0;
+                        *ecx = 0;
+                        *edx = 0;
+                } else {
+                        *eax = (u32)exits_array[index];
+                }
+        }
+	
 	trace_kvm_cpuid(function, *eax, *ebx, *ecx, *edx, entry_found);
 	return entry_found;
 }
