@@ -24,11 +24,17 @@
 #include "trace.h"
 #include "pmu.h"
 
-int total_exits = 0;
+atomic_t total_exits = ATOMIC_INIT(0);
 EXPORT_SYMBOL(total_exits);
 
-int exits_array[69];
+atomic_t exits_array[69];
 EXPORT_SYMBOL(exits_array);
+
+atomic64_t total_exit_time = ATOMIC_INIT(0);
+EXPORT_SYMBOL(total_exit_time);
+
+atomic64_t exit_time_array[69];
+EXPORT_SYMBOL(exit_time_array);
 
 static u32 xstate_required_size(u64 xstate_bv, bool compacted)
 {
@@ -1010,9 +1016,9 @@ out:
 	} else
 		*eax = *ebx = *ecx = *edx = 0;
 	
-	if (function == 0x4FFFFFFF) {
-                *eax = (u32)total_exits;
-        } else if (function == 0x4FFFFFFD) {
+        if (function == 0x4FFFFFFF) {
+                *eax = atomic_read(&total_exits);
+        } else if (function == 0x4FFFFFFD || function == 0x4FFFFFFC) {
                 if (index > 68 || index < 0) {
                         *eax = 0;
                         *ebx = 0;
@@ -1027,9 +1033,15 @@ out:
                         *ebx = 0;
                         *ecx = 0;
                         *edx = 0;
-                } else {
-                        *eax = (u32)exits_array[index];
+                } else if (function == 0x4FFFFFFD) {
+                        *eax = atomic_read(&(exits_array[index]));
+                } else if (function == 0x4FFFFFFC) {
+                        *ebx = (atomic64_read(&(exit_time_array[index])) & (0xFFFFFFFF << 32)) >> 32;
+                        *ecx = atomic64_read(&(exit_time_array[index])) & 0xFFFFFFFF;
                 }
+        } else if (function == 0x4FFFFFFE) {
+                *ebx = (atomic64_read(&total_exit_time) & (0xFFFFFFFF << 32)) >> 32;
+                *ecx = atomic64_read(&total_exit_time) & 0xFFFFFFFF;
         }
 	
 	trace_kvm_cpuid(function, *eax, *ebx, *ecx, *edx, entry_found);
