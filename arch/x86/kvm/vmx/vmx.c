@@ -5891,14 +5891,14 @@ static int vmx_handle_exit(struct kvm_vcpu *vcpu)
 	if (exit_reason < kvm_vmx_max_exit_handlers
 	    && kvm_vmx_exit_handlers[exit_reason]) {
                 atomic_inc(&total_exits);
-                atomic_inc(&(exits_array[exit_code]));
+                atomic_inc(&(exits_array[exit_reason]));
 
                 initial_time = rdtsc();
                 return_val = kvm_vmx_exit_handlers[exit_reason](vcpu);
                 completion_time = rdtsc();
 
                 atomic64_add(completion_time - initial_time, &total_exit_time);
-                atomic64_add(completion_time - initial_time, &(exit_time_array[exit_code]));
+                atomic64_add(completion_time - initial_time, &(exit_time_array[exit_reason]));
 
                 return return_val;
         } else {
