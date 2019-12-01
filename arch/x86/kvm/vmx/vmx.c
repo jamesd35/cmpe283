@@ -64,8 +64,10 @@
 MODULE_AUTHOR("Qumranet");
 MODULE_LICENSE("GPL");
 
-extern int total_exits;
-extern int exits_array[];
+extern atomic_t total_exits;
+extern atomic_t exits_array[];
+extern atomic64_t total_exit_time;
+extern atomic64_t exit_time_array[];
 
 static const struct x86_cpu_id vmx_cpu_id[] = {
 	X86_FEATURE_MATCH(X86_FEATURE_VMX),
@@ -5801,6 +5803,8 @@ void dump_vmcs(void)
 static int vmx_handle_exit(struct kvm_vcpu *vcpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+        long initial_time, completion_time;
+        int return_val;
 	u32 exit_reason = vmx->exit_reason;
 	u32 vectoring_info = vmx->idt_vectoring_info;
 
@@ -5886,9 +5890,17 @@ static int vmx_handle_exit(struct kvm_vcpu *vcpu)
 
 	if (exit_reason < kvm_vmx_max_exit_handlers
 	    && kvm_vmx_exit_handlers[exit_reason]) {
-		 total_exits += 1;
-                 exits_array[exit_reason] += 1;
-		return kvm_vmx_exit_handlers[exit_reason](vcpu);
+                atomic_inc(&total_exits);
+                atomic_inc(&(exits_array[exit_code]));
+
+                initial_time = rdtsc();
+                return_val = kvm_vmx_exit_handlers[exit_reason](vcpu);
+                completion_time = rdtsc();
+
+                atomic64_add(completion_time - initial_time, &total_exit_time);
+                atomic64_add(completion_time - initial_time, &(exit_time_array[exit_code]));
+
+                return return_val;
         } else {
 		vcpu_unimpl(vcpu, "vmx: unexpected exit reason 0x%x\n",
 				exit_reason);
